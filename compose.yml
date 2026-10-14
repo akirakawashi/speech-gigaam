@@ -8,7 +8,8 @@ x-hardening: &hardening
   read_only: true
   cap_drop: [ALL]
   security_opt: ["no-new-privileges:true"]
-  user: "${GIGAAM_UID:-10001}:${GIGAAM_GID:-10001}"
+  # Не root и не продовый 3000: свой постоянный пользователь, как в образе службы.
+  user: "10001:10001"
 
 services:
   triton:

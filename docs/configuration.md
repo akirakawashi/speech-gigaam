@@ -13,7 +13,6 @@
 | `GIGAAM_CPUS` | `8` | ядра контейнера службы; около 2 на обработчик |
 | `GIGAAM_MEMORY` | `16g` | память контейнера службы |
 | `GIGAAM_TRITON_IMAGE` | `nvcr.io/nvidia/tritonserver:25.06-py3` | образ Triton в локальном Docker |
-| `GIGAAM_UID`, `GIGAAM_GID` | `10001` | пользователь контейнеров |
 | `GIGAAM_VERSION` | `0.1.0` | тег образа службы |
 
 ## Служба

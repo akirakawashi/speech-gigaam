@@ -18,8 +18,8 @@
    sudo chown -R "$(id -u):$(id -g)" /srv/speech-gigaam
    cp -a <temptest>/benchmark-cache/gigaam-trt/. /srv/speech-gigaam/model/
    ```
-   Контейнеры работают под пользователем из `GIGAAM_UID`/`GIGAAM_GID`; он должен
-   читать эту папку.
+   Контейнеры работают от пользователя `10001` без прав на сервере, поэтому папка
+   должна читаться всеми (обычные права: каталоги 755, файлы 644).
 4. **Сборка образа службы** тянет пакеты из PyPI и PyTorch CPU с
    `download.pytorch.org`, базовый образ — `python:3.12-slim-bookworm` с Docker Hub.
    Если с сервера это недоступно, образ собирается на другой машине и переносится
@@ -30,7 +30,7 @@
 
 ```bash
 cd speech-gigaam
-cp .env.example .env          # GIGAAM_MODEL_DIR, GIGAAM_UID/GID — свой пользователь (id -u, id -g)
+cp .env.example .env          # указать GIGAAM_MODEL_DIR и число обработчиков
 docker compose up -d --build  # без --build, если образ перенесён готовым
 docker compose ps             # оба контейнера healthy
 curl -s http://127.0.0.1:8090/ready
