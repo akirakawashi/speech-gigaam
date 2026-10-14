@@ -1,0 +1,100 @@
+[project]
+name = "speech-gigaam"
+version = "0.1.0"
+description = "Распознавание речи GigaAM: HTTP-служба поверх энкодера TensorRT в Triton."
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+  "fastapi>=0.141.1,<0.142",
+  "uvicorn[standard]>=0.49.0,<0.50",
+  "pydantic>=2.13.5,<3",
+  "pydantic-settings>=2.14.1,<3",
+  "PyYAML>=6,<7",
+  # Версии ниже совпадают со стендом temptest: от них зависит совпадение текста со стендом.
+  "av==15.1.0",
+  "numpy>=1.26.4,<3",
+  "onnxruntime==1.24.4",
+  "silero-vad==6.2.3",
+  "torch==2.10.0",
+  "torchaudio==2.10.0",
+  "sentencepiece>=0.2,<0.3",
+  "tritonclient[grpc]==2.59.0",
+]
+
+[dependency-groups]
+dev = [
+  "httpx>=0.28.1,<0.29",
+  "mypy>=2.3.0,<3",
+  "pytest>=9.1.1,<10",
+  "pytest-asyncio>=1.4.0,<2",
+  "ruff>=0.16.0,<0.17",
+  "types-PyYAML>=6,<7",
+]
+
+[project.scripts]
+speech-gigaam = "src.presentation.http.main:main"
+
+[build-system]
+requires = ["uv_build>=0.11.18,<0.12.0"]
+build-backend = "uv_build"
+
+[tool.uv]
+required-version = ">=0.11.18"
+
+[tool.uv.build-backend]
+module-name = "src"
+module-root = ""
+
+# PyTorch только для процессора: видеокарта нужна одному Triton.
+[tool.uv.sources]
+torch = { index = "pytorch-cpu" }
+torchaudio = { index = "pytorch-cpu" }
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[tool.pytest.ini_options]
+minversion = "9.0"
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "--basetemp=.pytest-tmp -p no:cacheprovider"
+filterwarnings = ["ignore:Using `httpx` with `starlette.testclient` is deprecated"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.ruff.lint.isort]
+combine-as-imports = true
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+plugins = ["pydantic.mypy"]
+mypy_path = "."
+explicit_package_bases = true
+
+[[tool.mypy.overrides]]
+module = ["tritonclient.*", "torchaudio.*", "sentencepiece.*", "av.*", "onnxruntime.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+strict = false
+disable_error_code = [
+  "no-untyped-def",
+  "no-untyped-call",
+  "attr-defined",
+  "type-arg",
+  "index",
+  "arg-type",
+  "call-overload",
+  "unused-ignore",
+]

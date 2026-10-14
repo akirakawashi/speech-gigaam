@@ -1,0 +1,86 @@
+name: speech-gigaam
+
+# Два контейнера: Triton держит энкодер GigaAM на видеокарте, служба делает остальное
+# на процессоре и отвечает по HTTP. Пояснения — docs/deployment.md.
+
+x-hardening: &hardening
+  init: true
+  read_only: true
+  cap_drop: [ALL]
+  security_opt: ["no-new-privileges:true"]
+  user: "${GIGAAM_UID:-10001}:${GIGAAM_GID:-10001}"
+
+services:
+  triton:
+    <<: *hardening
+    # Образ перенесён на сервер вручную: реестр NVIDIA отвечает 403. Не скачивать.
+    image: ${GIGAAM_TRITON_IMAGE:-nvcr.io/nvidia/tritonserver:25.06-py3}
+    pull_policy: never
+    restart: unless-stopped
+    shm_size: 256m
+    tmpfs:
+      - /tmp
+    networks: [gigaam]
+    environment:
+      NVIDIA_DRIVER_CAPABILITIES: compute,utility
+      HOME: /tmp
+      CUDA_CACHE_PATH: /tmp/cuda-cache
+      TZ: Europe/Moscow
+    volumes:
+      - ${GIGAAM_MODEL_DIR:?Укажите папку модели}/repository:/models:ro
+    entrypoint: [tritonserver]
+    command:
+      - --model-repository=/models
+      - --strict-model-config=true
+      - --strict-readiness=true
+      - --model-control-mode=none
+      - --cuda-memory-pool-byte-size=0:67108864
+      - --pinned-memory-pool-byte-size=67108864
+      - --log-verbose=0
+    healthcheck:
+      test: [CMD, python3, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/v2/models/gigaam_encoder/versions/1/ready',timeout=5).read()"]
+      interval: 5s
+      timeout: 6s
+      retries: 60
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ["${GIGAAM_GPU:-0}"]
+              capabilities: [gpu]
+
+  gigaam:
+    <<: *hardening
+    image: speech-gigaam:${GIGAAM_VERSION:-0.1.0}
+    build: .
+    pull_policy: never
+    restart: unless-stopped
+    stop_grace_period: 45s
+    depends_on:
+      triton:
+        condition: service_healthy
+    tmpfs:
+      - /tmp
+    networks: [gigaam]
+    cpus: "${GIGAAM_CPUS:-8}"
+    mem_limit: ${GIGAAM_MEMORY:-16g}
+    env_file: .env
+    environment:
+      GIGAAM_MODEL_DIR: /model
+      GIGAAM_TRITON_URL: triton:8001
+      TZ: Europe/Moscow
+    volumes:
+      - ${GIGAAM_MODEL_DIR:?Укажите папку модели}:/model:ro
+    ports:
+      # Только для этой машины: воркер стоит рядом.
+      - "127.0.0.1:${GIGAAM_PORT:-8090}:8000"
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/ready',timeout=5).read()"]
+      interval: 10s
+      timeout: 6s
+      start_period: 300s
+      retries: 3
+
+networks:
+  gigaam: {}
