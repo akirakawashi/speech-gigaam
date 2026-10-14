@@ -27,6 +27,5 @@ COPY --from=build /app /app
 RUN python -c "import av, onnxruntime, sentencepiece, torch, torchaudio, tritonclient.grpc; \
 from src.infrastructure.vad import silero_model_path; silero_model_path(); \
 assert not torch.cuda.is_available()"
-USER 10001:10001
 EXPOSE 8000
 CMD ["speech-gigaam"]
