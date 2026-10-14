@@ -32,7 +32,7 @@ services:
     entrypoint: [tritonserver]
     command:
       - --model-repository=/models
-      - --strict-model-config=true
+      - --disable-auto-complete-config
       - --strict-readiness=true
       - --model-control-mode=none
       - --cuda-memory-pool-byte-size=0:67108864
