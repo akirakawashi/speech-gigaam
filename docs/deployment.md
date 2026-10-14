@@ -10,8 +10,16 @@
    `docker image inspect nvcr.io/nvidia/tritonserver:25.06-py3 >/dev/null && echo есть`.
    Файл образа храните: если образ удалят из Docker, его возвращает
    `docker load -i <файл>`.
-3. **Папка модели**, собранная под эту видеокарту: сейчас это
-   `benchmark-cache/gigaam-trt` стенда `temptest` на сервере ([модель](model.md)).
+3. **Папка модели**, собранная под эту видеокарту, — вне репозитория, в
+   `/srv/speech-gigaam/model`. Сейчас её копируют один раз из кеша стенда, чтобы новые
+   прогоны стенда не меняли файлы, которые читает служба ([модель](model.md)):
+   ```bash
+   sudo mkdir -p /srv/speech-gigaam/model
+   sudo chown -R "$(id -u):$(id -g)" /srv/speech-gigaam
+   cp -a <temptest>/benchmark-cache/gigaam-trt/. /srv/speech-gigaam/model/
+   ```
+   Контейнеры работают под пользователем из `GIGAAM_UID`/`GIGAAM_GID`; он должен
+   читать эту папку.
 4. **Сборка образа службы** тянет пакеты из PyPI и PyTorch CPU с
    `download.pytorch.org`, базовый образ — `python:3.12-slim-bookworm` с Docker Hub.
    Если с сервера это недоступно, образ собирается на другой машине и переносится
@@ -22,7 +30,7 @@
 
 ```bash
 cd speech-gigaam
-cp .env.example .env          # GIGAAM_MODEL_DIR — путь к папке модели на сервере
+cp .env.example .env          # GIGAAM_MODEL_DIR, GIGAAM_UID/GID — свой пользователь (id -u, id -g)
 docker compose up -d --build  # без --build, если образ перенесён готовым
 docker compose ps             # оба контейнера healthy
 curl -s http://127.0.0.1:8090/ready

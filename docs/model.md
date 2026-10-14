@@ -1,7 +1,8 @@
 # Папка модели
 
-Служба и Triton читают одну папку в формате стенда `temptest`
-(`benchmark-cache/gigaam-trt`). Её путь на сервере задаёт `GIGAAM_MODEL_DIR`.
+Служба и Triton читают одну папку в формате стенда `temptest`. Её путь на сервере
+задаёт `GIGAAM_MODEL_DIR`; принятое место — `/srv/speech-gigaam/model`, вне репозитория.
+Сейчас это копия `benchmark-cache/gigaam-trt` стенда ([развёртывание](deployment.md)).
 
 ```
 артефакты.json                         описание экспорта: модель, словарь, файлы и SHA256
@@ -38,7 +39,9 @@ repository/gigaam_encoder/
 (версия зашита в образ Triton). Пересборка нужна при смене любого из трёх. Сейчас
 это делает стенд: `bash benchmark/run-gigaam-trt.sh …` в `temptest` экспортирует веса
 в ONNX и собирает движок в образе Triton, а при совпадении всех трёх использует
-готовый. Папка `benchmark-cache/gigaam-trt` на сервере собрана под H100 NVL.
+готовый. Папка `benchmark-cache/gigaam-trt` на сервере собрана под H100 NVL. После
+пересборки её снова копируют в `/srv/speech-gigaam/model` и перезапускают службу:
+`docker compose restart`.
 
 Перенос экспорта и сборки движка в сам проект — следующий шаг: тогда проект перестанет
 зависеть от стенда.
