@@ -2,7 +2,10 @@
 FROM python:3.12-slim-bookworm AS build
 
 RUN pip install --no-cache-dir uv==0.11.18
+# UV_CONCURRENT_INSTALLS: по умолчанию uv компилирует по процессу на ядро; на сервере их 128,
+# и сборка падает на лимите открытых файлов (os error 24). Четырёх хватает.
 ENV UV_COMPILE_BYTECODE=1 \
+    UV_CONCURRENT_INSTALLS=4 \
     UV_LINK_MODE=copy \
     UV_PYTHON_DOWNLOADS=never \
     UV_PROJECT_ENVIRONMENT=/app/.venv
