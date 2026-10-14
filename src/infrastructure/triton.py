@@ -13,21 +13,47 @@ VERSION = "1"
 
 
 def connect(url: str) -> Any:
-    """Создать gRPC-клиент Triton. Соединение открывается при первом вызове."""
+    """Создать gRPC-клиент Triton. Соединение открывается при первом вызове.
+
+    Параметры канала — умолчания клиента Triton и запрет HTTP-прокси: Triton —
+    соседний контейнер, а корпоративный прокси, который Docker может подставить в
+    окружение (``http_proxy``), увёл бы туда и gRPC.
+    """
     import tritonclient.grpc as grpc
 
-    return grpc.InferenceServerClient(url)
+    keepalive = grpc.KeepAliveOptions()
+    largest = 2**31 - 1  # как MAX_GRPC_MESSAGE_SIZE клиента Triton
+    options = [
+        ("grpc.max_send_message_length", largest),
+        ("grpc.max_receive_message_length", largest),
+        ("grpc.keepalive_time_ms", keepalive.keepalive_time_ms),
+        ("grpc.keepalive_timeout_ms", keepalive.keepalive_timeout_ms),
+        ("grpc.keepalive_permit_without_calls", keepalive.keepalive_permit_without_calls),
+        ("grpc.http2.max_pings_without_data", keepalive.http2_max_pings_without_data),
+        ("grpc.enable_http_proxy", 0),
+    ]
+    return grpc.InferenceServerClient(url, channel_args=options)
+
+
+def readiness_problem(client: Any, model: str, timeout: float) -> str | None:
+    """Проверить, что сервер и модель готовы.
+
+    Возвращает ``None``, если готовы, иначе причину словами — вместе с текстом ошибки
+    gRPC, если сервер не ответил. Исключений не бросает.
+    """
+    try:
+        if not client.is_server_ready(client_timeout=timeout):
+            return "сервер отвечает, но не готов"
+        if not client.is_model_ready(model, VERSION, client_timeout=timeout):
+            return f"сервер готов, модель {model} не готова"
+    except Exception as exc:
+        return f"{type(exc).__name__}: {exc}"
+    return None
 
 
 def is_ready(client: Any, model: str, timeout: float) -> bool:
-    """Проверить, что сервер и модель готовы; при недоступности сервера — ``False``."""
-    try:
-        return bool(
-            client.is_server_ready(client_timeout=timeout)
-            and client.is_model_ready(model, VERSION, client_timeout=timeout)
-        )
-    except Exception:
-        return False
+    """Готовы ли сервер и модель; для проверки ``/ready``."""
+    return readiness_problem(client, model, timeout) is None
 
 
 def validate_model(client: Any, model: str, timeout: float) -> dict[str, Any]:

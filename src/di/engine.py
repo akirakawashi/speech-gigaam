@@ -19,7 +19,7 @@ from src.infrastructure.decoder import GreedyDecoder, Tokenizer, cpu_session
 from src.infrastructure.features import LogMelFeatures
 from src.infrastructure.model_files import ModelFiles, ModelFilesError
 from src.infrastructure.recognizer import GigaamRecognizer
-from src.infrastructure.triton import TritonEncoder, connect, is_ready, validate_model
+from src.infrastructure.triton import TritonEncoder, connect, readiness_problem, validate_model
 from src.infrastructure.vad import SileroSpeechDetector, silero_model_path
 
 
@@ -73,8 +73,9 @@ def build_engine(config: EngineConfig) -> TranscribeRecording:
     )
     client = connect(config.triton_url)
     check_timeout = min(config.triton_timeout_s, 30.0)
-    if not is_ready(client, config.triton_model, check_timeout):
-        raise EngineError(f"Triton {config.triton_url} или модель {config.triton_model} не готовы")
+    problem = readiness_problem(client, config.triton_model, check_timeout)
+    if problem is not None:
+        raise EngineError(f"Triton {config.triton_url} не готов: {problem}")
     validate_model(client, config.triton_model, check_timeout)
     recognizer = GigaamRecognizer(
         features,

@@ -111,3 +111,35 @@ def test_greedy_decoder_emits_tokens_per_frame_and_caps_symbols():
     assert emitted == [0, 0, 2, 2, 2]
     # Первый вызов предсказателя — пустой символ при сборке, затем каждый выданный токен.
     assert decoder_session.labels == [blank, 1, 2, 3, 3, 3]
+
+
+class FakeTritonClient:
+    def __init__(self, server=True, model=True, error=None):
+        self.server, self.model, self.error = server, model, error
+
+    def is_server_ready(self, client_timeout):
+        if self.error:
+            raise self.error
+        return self.server
+
+    def is_model_ready(self, name, version, client_timeout):
+        return self.model
+
+
+def test_triton_readiness_problem_names_the_cause():
+    from src.infrastructure.triton import is_ready, readiness_problem
+
+    assert readiness_problem(FakeTritonClient(), "m", 1) is None and is_ready(
+        FakeTritonClient(), "m", 1
+    )
+    assert (
+        readiness_problem(FakeTritonClient(server=False), "m", 1) == "сервер отвечает, но не готов"
+    )
+    assert (
+        readiness_problem(FakeTritonClient(model=False), "m", 1)
+        == "сервер готов, модель m не готова"
+    )
+    problem = readiness_problem(
+        FakeTritonClient(error=ConnectionError("failed to connect")), "m", 1
+    )
+    assert problem == "ConnectionError: failed to connect"
